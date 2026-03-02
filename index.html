@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shred Shoot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            background: #000;
+            display: grid;
+            place-items: center;
+            font-family: Georgia, serif;
+            cursor: none;
+            overflow: hidden;
+        }
+
+        /* Hide crosshair on touch devices */
+        #crosshair {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #fff;
+        }
+
+        #crosshair::before {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+
+        #crosshair::after {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+
+        #crosshair .dot {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: red;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .shred {
+            font-size: 10vw;
+            font-weight: 900;
+            color: #fff;
+            cursor: none;
+            user-select: none;
+            letter-spacing: 0.05em;
+        }
+
+        .shred span {
+            display: inline-block;
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s;
+        }
+
+        /* DESKTOP hover */
+        .shred:hover span:nth-child(odd) {
+            transform: translateY(-60px) rotate(15deg);
+        }
+
+        .shred:hover span:nth-child(even) {
+            transform: translateY(60px) rotate(-15deg);
+        }
+
+        /* MOBILE — class added by JS on touch */
+        .shred.touched span:nth-child(odd) {
+            transform: translateY(-60px) rotate(15deg);
+        }
+
+        .shred.touched span:nth-child(even) {
+            transform: translateY(60px) rotate(-15deg);
+        }
+
+        .bullet-hole {
+            position: fixed;
+            pointer-events: none;
+            z-index: 100;
+            border-radius: 50%;
+            background: radial-gradient(circle, #111 30%, #333 60%, transparent 100%);
+            border: 1px solid #555;
+            transform: translate(-50%, -50%) scale(0);
+            animation: bulletImpact 0.3s ease-out forwards;
+        }
+
+        @keyframes bulletImpact {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 1;
+            }
+
+            60% {
+                transform: translate(-50%, -50%) scale(1.3);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.85;
+            }
+        }
+
+        .crack {
+            position: fixed;
+            pointer-events: none;
+            z-index: 99;
+            background: #fff;
+            height: 1px;
+            transform-origin: left center;
+            animation: crackAnim 0.4s ease-out forwards;
+        }
+
+        @keyframes crackAnim {
+            0% {
+                opacity: 0.9;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .spark {
+            position: fixed;
+            pointer-events: none;
+            z-index: 101;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            animation: sparkFly 0.6s ease-out forwards;
+        }
+
+        @keyframes sparkFly {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: var(--spark-end) scale(0);
+            }
+        }
+
+        .trace {
+            position: fixed;
+            pointer-events: none;
+            z-index: 98;
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 200, 0.6), transparent);
+            transform-origin: left center;
+            animation: traceFade 0.5s ease-out forwards;
+        }
+
+        @keyframes traceFade {
+            0% {
+                opacity: 0.8;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* Mobile crosshair ring that appears at touch point */
+        .touch-crosshair {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9998;
+            width: 40px;
+            height: 40px;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            animation: touchRing 0.4s ease-out forwards;
+        }
+
+        .touch-crosshair::before,
+        .touch-crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+        }
+
+        .touch-crosshair::before {
+            width: 100%;
+            height: 1px;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+
+        .touch-crosshair::after {
+            width: 1px;
+            height: 100%;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+
+        @keyframes touchRing {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 1;
+            }
+
+            60% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="crosshair">
+        <div class="dot"></div>
+    </div>
+    <div class="shred">SHRED</div>
+
+    <script>
+        const crosshair = document.getElementById('crosshair');
+        const shred = document.querySelector('.shred');
+
+        // Detect touch device
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+        if (isTouch) {
+            // Hide mouse crosshair on touch devices
+            crosshair.style.display = 'none';
+            // Restore normal cursor
+            document.body.style.cursor = 'default';
+            shred.style.cursor = 'default';
+        }
+
+        // Split letters
+        shred.innerHTML = shred.textContent.split('').map(c => `<span>${c}</span>`).join('');
+
+        // ── DESKTOP ──────────────────────────────────────
+        document.addEventListener('mousemove', e => {
+            if (isTouch) return;
+            crosshair.style.left = e.clientX + 'px';
+            crosshair.style.top = e.clientY + 'px';
+        });
+
+        document.addEventListener('click', e => {
+            if (isTouch) return;
+            shoot(e.clientX, e.clientY);
+        });
+
+        // ── MOBILE ───────────────────────────────────────
+        document.addEventListener('touchstart', e => {
+            e.preventDefault(); // stops double-tap zoom
+            const touch = e.touches[0];
+            const x = touch.clientX;
+            const y = touch.clientY;
+
+            // Show crosshair ring at tap point
+            touchCrosshair(x, y);
+
+            // Check if touch is ON the text
+            const el = document.elementFromPoint(x, y);
+            if (el && el.closest('.shred')) {
+                // Scatter the letters
+                shred.classList.add('touched');
+                // Auto-reset after 1.5s (simulates moving away)
+                clearTimeout(shred._resetTimer);
+                shred._resetTimer = setTimeout(() => {
+                    shred.classList.remove('touched');
+                }, 1500);
+            }
+
+            // Shoot effect everywhere
+            shoot(x, y);
+
+        }, { passive: false });
+
+        // ── SHARED SHOOT EFFECTS ─────────────────────────
+        function shoot(x, y) {
+            shootTrace(x, y);
+            bulletHole(x, y);
+            sparks(x, y);
+            cracks(x, y);
+        }
+
+        function touchCrosshair(x, y) {
+            const ring = document.createElement('div');
+            ring.className = 'touch-crosshair';
+            ring.style.left = x + 'px';
+            ring.style.top = y + 'px';
+            document.body.appendChild(ring);
+            setTimeout(() => ring.remove(), 500);
+        }
+
+        function shootTrace(x, y) {
+            const side = Math.floor(Math.random() * 4);
+            const W = window.innerWidth, H = window.innerHeight;
+            let startX, startY;
+
+            if (side === 0) { startX = Math.random() * W; startY = 0; }
+            else if (side === 1) { startX = W; startY = Math.random() * H; }
+            else if (side === 2) { startX = Math.random() * W; startY = H; }
+            else { startX = 0; startY = Math.random() * H; }
+
+            const dx = x - startX, dy = y - startY;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+            const trace = document.createElement('div');
+            trace.className = 'trace';
+            trace.style.left = startX + 'px';
+            trace.style.top = startY + 'px';
+            trace.style.width = len + 'px';
+            trace.style.transform = `rotate(${angle}deg)`;
+            document.body.appendChild(trace);
+            setTimeout(() => trace.remove(), 600);
+        }
+
+        function bulletHole(x, y) {
+            const hole = document.createElement('div');
+            hole.className = 'bullet-hole';
+            const size = 16 + Math.random() * 10;
+            hole.style.width = size + 'px';
+            hole.style.height = size + 'px';
+            hole.style.left = x + 'px';
+            hole.style.top = y + 'px';
+            document.body.appendChild(hole);
+            setTimeout(() => {
+                hole.style.transition = 'opacity 1s ease';
+                hole.style.opacity = '0';
+                setTimeout(() => hole.remove(), 1000);
+            }, 1000);
+        }
+
+        function sparks(x, y) {
+            const colors = ['orange', 'yellow', '#ff4400', 'white', '#ffcc00'];
+            for (let i = 0; i < 14; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'spark';
+                spark.style.left = x + 'px';
+                spark.style.top = y + 'px';
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 30 + Math.random() * 70;
+                spark.style.setProperty('--spark-end', `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`);
+                spark.style.background = colors[Math.floor(Math.random() * colors.length)];
+                document.body.appendChild(spark);
+                setTimeout(() => spark.remove(), 700);
+            }
+        }
+
+        function cracks(x, y) {
+            const num = 5 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < num; i++) {
+                const crack = document.createElement('div');
+                crack.className = 'crack';
+                const angle = (360 / num) * i + (Math.random() * 15 - 7);
+                const len = 25 + Math.random() * 55;
+                crack.style.left = x + 'px';
+                crack.style.top = y + 'px';
+                crack.style.width = len + 'px';
+                crack.style.transform = `rotate(${angle}deg)`;
+                document.body.appendChild(crack);
+                setTimeout(() => crack.remove(), 500);
+            }
+        }
+    </script>
+
+</body>
+
+</html>
